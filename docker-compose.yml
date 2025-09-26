@@ -1,0 +1,63 @@
+version: '3.8'
+
+services:
+  # MongoDB 数据库服务
+  mongo:
+    image: mongo:6.0
+    container_name: thorcq-mongo
+    restart: unless-stopped
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: admin
+      MONGO_INITDB_ROOT_PASSWORD: thorcq123
+      MONGO_INITDB_DATABASE: binance
+    ports:
+      - "7399:27017"  # 暴露到公网端口 7399
+    volumes:
+      - mongo_data:/data/db
+      - ./mongo-init:/docker-entrypoint-initdb.d
+    networks:
+      - thorcq-network
+    healthcheck:
+      test: ["CMD", "mongosh", "--eval", "db.adminCommand('ping')"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+  # 交易策略应用服务
+  app:
+    build: .
+    container_name: thorcq-app
+    restart: unless-stopped
+    depends_on:
+      mongo:
+        condition: service_healthy
+    env_file:
+      - .env
+    environment:
+      - MONGO_URI=mongodb://admin:thorcq123@mongo:27017/binance?authSource=admin
+      - MONGO_HOST=mongo
+      - MONGO_PORT=27017
+      - MONGO_DB=binance
+    volumes:
+      - ./logs:/app/logs
+    networks:
+      - thorcq-network
+    healthcheck:
+      test: ["CMD", "python", "-c", "import pymongo; pymongo.MongoClient('mongodb://admin:thorcq123@mongo:27017/binance?authSource=admin').admin.command('ping')"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+
+volumes:
+  mongo_data:
+    driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: /data/docker/ThorCQ/mongo
+
+networks:
+  thorcq-network:
+    driver: bridge
