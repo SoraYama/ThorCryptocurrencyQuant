@@ -32,4 +32,4 @@ mkdir -p /app/logs
 
 # 启动策略
 echo "启动交易策略..."
-exec python 网格策略/bitmex_main-xbt.py
+exec python src/bitmex_main-xbt.py
